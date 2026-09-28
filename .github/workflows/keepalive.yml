@@ -1,0 +1,52 @@
+# Ska ligga i repot som: .github/workflows/keepalive.yml
+#
+# Besöker samsök-appen var åttonde timme i en riktig (headless) webbläsare,
+# så att Streamlit Community Clouds 12-timmarsgräns för "ingen trafik" inte nås.
+# Om appen ändå har hunnit somna klickar skriptet på "Yes, get this app back up!".
+
+name: Håll samsök-appen vaken
+
+on:
+  schedule:
+    - cron: "17 */8 * * *"   # var åttonde timme, minut 17
+  workflow_dispatch:          # gör att du kan köra det manuellt för att testa
+
+jobs:
+  besok-appen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installera Playwright
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Besök appen
+        run: |
+          cat > besok.py << 'EOF'
+          from playwright.sync_api import sync_playwright
+
+          URL = "https://sydvast-samsokning.streamlit.app/"
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch()
+              page = browser.new_page()
+              page.goto(URL, wait_until="domcontentloaded", timeout=90000)
+              page.wait_for_timeout(8000)
+
+              knapp = page.get_by_role("button", name="Yes, get this app back up!")
+              if knapp.count() > 0:
+                  print("Appen sov - väcker den...")
+                  knapp.first.click()
+                  page.wait_for_timeout(60000)
+              else:
+                  print("Appen var vaken.")
+
+              print("Sidtitel:", page.title())
+              browser.close()
+          EOF
+          python besok.py
