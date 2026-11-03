@@ -1,21 +1,36 @@
 # Ska ligga i repot som: .github/workflows/keepalive.yml
 #
-# Besöker samsök-appen var åttonde timme i en riktig (headless) webbläsare,
+# Besöker samsök-appen var fjärde timme i en riktig (headless) webbläsare,
 # så att Streamlit Community Clouds 12-timmarsgräns för "ingen trafik" inte nås.
+# (GitHub startar schemalagda körningar med upp till några timmars fördröjning,
+# så intervallet måste ha god marginal mot 12 timmar.)
 # Om appen ändå har hunnit somna klickar skriptet på "Yes, get this app back up!".
+#
+# GitHub stänger av schemalagda körningar i publika repon efter 60 dagar utan
+# aktivitet. Första steget nedan återaktiverar därför arbetsflödet vid varje
+# körning, så att 60-dagarsgränsen aldrig nås.
 
 name: Håll samsök-appen vaken
 
 on:
   schedule:
-    - cron: "17 */8 * * *"   # var åttonde timme, minut 17
+    - cron: "17 */4 * * *"   # var fjärde timme, minut 17
   workflow_dispatch:          # gör att du kan köra det manuellt för att testa
+
+permissions:
+  actions: write              # behövs för att återaktivera arbetsflödet
 
 jobs:
   besok-appen:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Återställ GitHubs 60-dagarsgräns
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/keepalive.yml/enable"
+
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
